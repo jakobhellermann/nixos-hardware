@@ -199,9 +199,9 @@ Fix in `default.nix`: a hand-rolled **`systemd.services.ipu7-camera-relay`** run
 
 5. **Sensor is mounted upside-down** — corrected in-pipeline with `videoflip`, placed *after*
    `videoscale` so it flips the small 1280×720 frame (flipping the full 3840×2160 frame drops fps
-   from 23 → 13). `method=rotate-180` gives an upright, non-mirrored image; we use
-   `method=vertical-flip` to get the upright **mirror/selfie** view (a horizontal mirror on top of
-   rotate-180 reduces to a single vertical flip).
+   from 23 → 13). `method=rotate-180` gives an upright, non-mirrored image. (We previously used
+   `method=vertical-flip` for a mirrored "selfie" view, but apps mirror their local preview
+   themselves — a pre-mirrored source makes the image appear flipped to remote participants.)
 
 6. **Soft-ISP image is flat/washed-out** *(obsolete — superseded by the hardware ISP, see below)*
    — the `IPASoft` software ISP has no `ov08x40` tuning file, so colour came out desaturated. A
@@ -234,7 +234,7 @@ Profile changes on top of the vendoring:
 - `hardware.firmware` gains `ipu7-camera-bins` + `ivsc-firmware`
 - udev rule `SUBSYSTEM=="intel-ipu7-psys", MODE="0660", GROUP="video"` so the HAL can open PSys
 - relay input pipeline is now `icamerasrc ! videoconvert ! videoscale ! videoflip
-  method=vertical-flip` — the `videobalance saturation=1.8` hack is gone (AIQ does real colour)
+  method=rotate-180` — the `videobalance saturation=1.8` hack is gone (AIQ does real colour)
 - `GST_PLUGIN_PATH` swaps `libcamera` for the vendored `icamerasrc`
 
 **Unfree note:** `ipu7-camera-bins` and `ivsc-firmware` require allowing unfree, e.g.:

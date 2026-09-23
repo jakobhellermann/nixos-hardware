@@ -165,16 +165,17 @@ in
       # videoscale adapt it to the loopback format (both are passthrough when the
       # output caps match icamerasrc's native NV12) and videoflip fixes
       # orientation — benchmarked as free even on full 4K frames. The panel
-      # mounts the sensor upside down (needs rotate-180 = H+V to make it
-      # upright); a `vertical-flip` instead gives upright + left-right MIRROR, i.e.
-      # the usual selfie view (rotate-180 then a horizontal mirror reduces to V).
+      # mounts the sensor upside down, so `rotate-180` is needed to deliver an
+      # upright image. Do NOT use `vertical-flip` for a mirrored "selfie" view:
+      # apps (Discord, Zoom) mirror their local preview themselves, so a
+      # pre-mirrored source makes the image appear flipped to remote participants.
       # Do NOT append a bare caps filter (e.g. `! video/x-raw,format=YUY2,...`):
       # v4l2-relayd parses this with the single-string gst_parse_launch, which
       # mis-tokenizes bare caps ("no element video", treats `/x-raw...` as a URI)
       # so the input pipeline fails to build and only the black splash is shown.
       # v4l2-relayd applies the caps (copied from the output appsrc below) to its
       # internal appsink instead.
-      input = "icamerasrc ! videoconvert ! videoscale ! videoflip method=vertical-flip";
+      input = "icamerasrc ! videoconvert ! videoscale ! videoflip method=rotate-180";
 
       # A leaky queue (drops old frames) + sync=false keep latency low so the
       # viewer sees the latest frame instead of a backlog; the -b 4 buffers in
