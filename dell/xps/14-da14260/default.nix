@@ -162,9 +162,9 @@ in
 
       # icamerasrc emits NV12 from the hardware ISP (already colour-corrected by
       # the AIQ tuning, so no videobalance hack is needed); videoconvert +
-      # videoscale adapt it to the loopback format (both are passthrough when the
-      # output caps match icamerasrc's native NV12) and videoflip fixes
-      # orientation — benchmarked as free even on full 4K frames. The panel
+      # videoscale adapt it to the loopback format (both stay passthrough: the
+      # ISP delivers the negotiated size already in NV12) and videoflip fixes
+      # orientation — a full-frame pixel shuffle at capture size. The panel
       # mounts the sensor upside down, so `rotate-180` is needed to deliver an
       # upright image. Do NOT use `vertical-flip` for a mirrored "selfie" view:
       # apps (Discord, Zoom) mirror their local preview themselves, so a
@@ -181,15 +181,19 @@ in
       # viewer sees the latest frame instead of a backlog; the -b 4 buffers in
       # preStart are enough to sustain full framerate without adding lag.
       #
-      # 3840x2160 NV12: the sensor has a single native mode (3856x2176 @
-      # 28.57 fps) and the hardware ISP scales, so 4K costs nothing over 720p —
-      # benchmarked ~28.6 fps with zero drops at 720p/1080p/4K, flip included
-      # (higher framerates are not possible: the sensor ignores 60/1 caps and
-      # keeps its native cadence). NV12 is icamerasrc's native output, so the
-      # videoconvert stages are passthrough instead of per-frame conversions.
-      # Lower width/height here if a consumer struggles with 4K input.
+      # 1920x1080 NV12: the sensor has a single native mode (3856x2176 @
+      # 28.57 fps) and the hardware ISP scales to the requested size (the caps
+      # must name one of the camera HAL's supported stream configs), so the
+      # stages stay passthrough — but videoflip and the v4l2sink write still
+      # move every full frame: 12.4 MB/frame at 4K vs 3.1 MB at 1080p (~373 vs
+      # ~93 MB/s at 30 fps), which showed up as ~0.5 core of constant CPU in the
+      # relay. Raise the caps again if a consumer ever needs more than 1080p;
+      # framerate is
+      # identical (~28.6 fps at 720p/1080p/4K, zero drops). Higher framerates
+      # are not possible: the sensor ignores 60/1 caps and keeps its native
+      # cadence.
       output =
-        "appsrc name=appsrc caps=video/x-raw,format=NV12,width=3840,height=2160,framerate=30/1"
+        "appsrc name=appsrc caps=video/x-raw,format=NV12,width=1920,height=1080,framerate=30/1"
         + " ! queue leaky=downstream max-size-buffers=3 ! videoconvert ! v4l2sink name=v4l2sink device=$(cat ${deviceFile}) sync=false";
     in
     {
