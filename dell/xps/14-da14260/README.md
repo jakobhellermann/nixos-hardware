@@ -218,16 +218,16 @@ the IPU7's **hardware ISP (PSys)** with per-sensor AIQ tuning (real AWB/AE/colou
 
 This is the stack from [nixpkgs PR #542085](https://github.com/NixOS/nixpkgs/pull/542085)
 (`hardware.ipu7`), tested working on this exact laptop by @aoli-al (nixos-hardware PR #1912
-comments). Since that PR is not merged yet, the four pieces are **vendored** into this profile
-(same pattern as `intel-cvs/`) and should be dropped in favour of
-`hardware.ipu7 = { enable = true; platform = "ipu75xa"; }` once it lands:
+comments). That PR has merged: the kernel module and blobs now come from nixpkgs, while the HAL
+and `icamerasrc` stay **vendored** because nixpkgs ships the 20260629_1 HAL release, which lacks
+the in-tree intel_cvs support kernel ≥ 7.2 needs (see below):
 
-| Vendored package | Role |
-|---|---|
-| `ipu7-drivers/` | `intel-ipu7-psys` kernel module — the hardware ISP device (`/dev/ipu7-psys0`); kernels ≥ 6.17 only ship the core + ISys in staging, no PSys |
-| `ipu7-camera-bins/` | IPU firmware + proprietary AIQ tuning blobs (**unfree**, Intel license) |
-| `ipu7-camera-hal/` | Intel camera HAL built for `ipu75xa` (Panther Lake) |
-| `icamerasrc/` | GStreamer source element wrapping the HAL |
+| Package | Source | Role |
+|---|---|---|
+| `ipu7-drivers` | nixpkgs (`boot.kernelPackages`) | `intel-ipu7-psys` kernel module — the hardware ISP device (`/dev/ipu7-psys0`); kernels ≥ 6.17 only ship the core + ISys in staging, no PSys |
+| `ipu7-camera-bins` | nixpkgs | IPU firmware + proprietary AIQ tuning blobs (**unfree**, Intel license) |
+| `ipu7-camera-hal/` | vendored | Intel camera HAL built for `ipu75xa` (Panther Lake) |
+| `icamerasrc/` | vendored | GStreamer source element wrapping the HAL |
 
 Profile changes on top of the vendoring:
 

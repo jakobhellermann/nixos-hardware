@@ -5,14 +5,10 @@
   ...
 }:
 let
-  # IPU7 hardware-ISP userspace stack (Intel camera HAL + proprietary AIQ
-  # tuning blobs + icamerasrc GStreamer element), vendored from nixpkgs PR
-  # #542085 until it merges. Once `hardware.ipu7` exists in nixpkgs, replace
-  # all of this (and the vendored packages) with:
-  #   hardware.ipu7 = { enable = true; platform = "ipu75xa"; };
-  # Note: ipu7-camera-bins is unfree — see README.md.
-  ipu7-camera-bins = pkgs.callPackage ./ipu7-camera-bins { };
-  ipu7-camera-hal = pkgs.callPackage ./ipu7-camera-hal { inherit ipu7-camera-bins; };
+  # Intel camera HAL + icamerasrc stay vendored: nixpkgs' ipu75xa-camera-hal is
+  # the 20260629_1 release, which cannot handle the in-tree intel_cvs subdev of
+  # kernel >= 7.2 (see ipu7-camera-hal/). ipu7-camera-bins is unfree — see README.md.
+  ipu7-camera-hal = pkgs.callPackage ./ipu7-camera-hal { };
   icamerasrc = pkgs.callPackage ./icamerasrc { inherit ipu7-camera-hal; };
 in
 {
@@ -55,7 +51,7 @@ in
   boot.extraModulePackages = [
     # PSys module for the hardware ISP; the in-tree staging driver only has
     # the core + ISys (raw capture), which forces the untuned software ISP.
-    (config.boot.kernelPackages.callPackage ./ipu7-drivers { })
+    config.boot.kernelPackages.ipu7-drivers
     config.boot.kernelPackages.v4l2loopback
   ]
   ++ lib.optional (
@@ -94,7 +90,7 @@ in
   # this machine bridges the sensor through a Synaptics SVP7500 (intel_cvs)
   # rather than Intel IVSC — it may turn out to be droppable.
   hardware.firmware = [
-    ipu7-camera-bins
+    pkgs.ipu7-camera-bins
     pkgs.ivsc-firmware
   ];
 

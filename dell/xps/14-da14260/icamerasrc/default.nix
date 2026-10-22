@@ -13,8 +13,8 @@
 # GStreamer source element for MIPI cameras behind the Intel camera HAL
 # (hardware ISP). Replaces libcamerasrc (software ISP) in the relay pipeline.
 #
-# Vendored from nixpkgs PR #542085; drop once that merges and use
-# pkgs.gst_all_1.icamerasrc-ipu75xa instead.
+# Vendored from nixpkgs PR #542085 to build against the vendored HAL; drop
+# together with ipu7-camera-hal/ and use pkgs.gst_all_1.icamerasrc-ipu75xa.
 stdenv.mkDerivation {
   pname = "icamerasrc-${ipu7-camera-hal.ipuVersion}";
   version = "0-unstable-2025-12-26";

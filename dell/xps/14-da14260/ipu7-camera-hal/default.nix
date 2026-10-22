@@ -24,8 +24,8 @@
 # Intel camera HAL: userspace image processing on the IPU7 hardware ISP
 # (PSys), loaded by the icamerasrc GStreamer element.
 #
-# Vendored from nixpkgs PR #542085; drop once that merges and use
-# pkgs.ipu75xa-camera-hal instead.
+# Vendored from nixpkgs PR #542085; drop in favour of pkgs.ipu75xa-camera-hal
+# once nixpkgs ships a HAL release that contains intel/ipu7-camera-hal#59.
 let
   ipuTarget =
     {
