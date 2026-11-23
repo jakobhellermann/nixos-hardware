@@ -304,6 +304,31 @@ CVS topology. So the profile now:
 This patch is upstreamable to intel/ipu7-camera-hal (the ipu75xa configs will need it for any
 Panther Lake laptop on kernel ≥ 7.2).
 
+## Kernel 7.3: driverless IR sensor blocks subdev node creation (fixed in 7.3.5)
+
+`4fdb0342f05e` ("media: ipu-bridge: Add Himax HM1092 IR sensor") shipped in 7.3, but the HM1092
+still has no in-tree driver. The ISYS async notifier therefore waits for it forever: `.complete`
+never runs, and that was the only remaining place that registers subdev nodes after the RGB
+sensor binds. The sensor itself binds fine - via the CVS bridge's own sub-notifier - but the ISYS
+`.bound` callback ran earlier, for the CVS subdev itself, before the sensor behind it existed.
+
+Result on 7.3 before the fix: `ov08x40` shows up in the media graph but never gets a
+`/dev/v4l-subdev*` node. libcamera fails with `Failed to open V4L2 device '': No such file or
+directory`, the Intel camera HAL finds no sensor, no camera at all. The pending entry is visible
+in `/sys/kernel/debug/v4l2-async/pending_async_subdevices`. (On 7.2 this could not happen:
+`HIMX1092` was not in `ipu_supported_sensors[]` yet, so the notifier still completed.)
+
+Worked around for 7.3.x with an out-of-tree `intel_cvs` shadow module (`updates/` beats
+`kernel/` in depmod's search order, same trick as `cs35l56-ebusy-fix`) whose
+`cvs_csi_notify_bound` registered the bound sensor's subdev node directly.
+
+Fixed upstream in `7456b40bc992` ("media: i2c: cvs: Add sensor node in bound callback",
+Arpith Alexander): `cvs_csi_notify_bound` now calls `v4l2_device_register_subdev_nodes()`
+itself, independent of notifier completion. The same gap was reported for this exact
+OVTI08F4 + HIMX1092 topology by Pierre Pinon (linux-kernel, 2026-09-03), and the IVSC driver
+got the equivalent fix for IPU6 (Dell XPS 13 9340, OV02C10 + HM1092). Shipped in 7.3.5, so the
+shadow module is gone and the in-tree driver works as-is.
+
 ## IR camera (HM1092 / Windows Hello) — blocked at hardware level
 
 *(obsolete — the firmware-block theory was retracted by its own author on
@@ -537,9 +562,11 @@ been re-confirmed since the recorder landed here.
 
 ## Next Steps
 
-1. Once [nixpkgs #542085](https://github.com/NixOS/nixpkgs/pull/542085) merges, drop the four
-   vendored ipu7 packages and switch to `hardware.ipu7 = { enable = true; platform = "ipu75xa"; }`
-   (keeping the hand-rolled relay, with `services.v4l2-relayd.instances.ipu7.enable = false;`).
+1. nixpkgs #542085 has merged; the kernel module and blobs already come from nixpkgs. What
+   keeps the HAL + `icamerasrc` vendored is nixpkgs shipping the `20260629_1` HAL release,
+   which cannot handle the in-tree `intel_cvs` of kernel ≥ 7.2 - drop them once nixpkgs has a
+   HAL with the CVS-aware `MediaControl` (PR #59) *and* the converted ipu75xa sensor configs
+   (item 2).
 2. Upstream `ipu7-camera-hal/ipu75xa-ov08x40-cvs.patch` to intel/ipu7-camera-hal (any Panther
    Lake laptop on kernel ≥ 7.2 needs it).
 3. (Optional) Improve the `services.v4l2-relayd` NixOS module upstream so it can set loopback
@@ -550,7 +577,8 @@ been re-confirmed since the recorder landed here.
    dropping the gate. Watch for the RGB camera regressing (`set_secondary_fwnode` on the shared
    `csi_dev`), and read the DSDT for `HIMX1092`'s `_DEP` to know whether that risk is real.
 6. Once the kernel carries the ipu-bridge entry itself (the release after 7.2), drop
-   `himx1092-ipu-bridge.patch` — the IR option would then no longer force a kernel rebuild. Only
+   `himx1092-ipu-bridge.patch` - the IR option would then no longer force a kernel rebuild
+   (v7.3 carries the entry, verified in 7.3.5). Only
    reachable after item 5, since the assertion currently prevents ever running that kernel with
    IR enabled.
 7. Upstream `dkms/hm1092-1.0` to mainline — there is no in-tree HM1092 driver, so this profile
